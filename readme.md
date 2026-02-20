@@ -1,12 +1,26 @@
-# ✉️ AI El. laiškų asistentas
+# ✉️ AI El. laiškų asistentas (v2.0)
 
-Streamlit aplikacija, leidžianti generuoti naujus el. laiškus arba profesionaliai perrašyti jau turimus juodraščius naudojant AI.
+Streamlit aplikacija, leidžianti generuoti naujus el. laiškus arba profesionaliai perrašyti jau turimus juodraščius naudojant skirtingus LLM tiekėjus.
 
 ---
 
-## 🚀 Funkcionalumas
+## 🚀 Nauja v2.0 architektūra
 
-### 🔹 1. Generuoti nuo nulio
+Aplikacija dabar palaiko kelis modelių tiekėjus:
+
+- 🧠 **DeepSeek (per API key)**
+- 💻 **Ollama (lokaliai)**
+
+Tas pats UI veikia su abiem tiekėjais – nereikia keisti kodo.
+
+Modelio pasirinkimas atliekamas aplikacijos viduje.
+
+---
+
+## 🔹 Funkcionalumas
+
+### 1️⃣ Generuoti nuo nulio
+
 Sukurk profesionalų el. laišką pagal:
 - Gavėjo vardą
 - Temą
@@ -18,15 +32,15 @@ Modelis sugeneruoja pilną, struktūruotą laišką lietuvių kalba.
 
 ---
 
-### 🔹 2. Perrašyti mano juodraštį
+### 2️⃣ Perrašyti mano juodraštį
 
 Įklijuok savo tekstą ir pasirink:
 
-- ✂️ **Trumpinti**
-- ➕ **Pailginti**
-- 🙂 **Padaryti mandagesnį**
-- 💪 **Padaryti tiesesnį**
-- ✅ **Ištaisyti gramatiką**
+- ✂️ Trumpinti
+- ➕ Pailginti
+- 🙂 Padaryti mandagesnį
+- 💪 Padaryti tiesesnį
+- ✅ Ištaisyti gramatiką
 
 Rodomas „Prieš / Po“ palyginimas.
 
@@ -35,18 +49,42 @@ Išvestis visada pateikiama kaip:
 
 ---
 
+## 🏗 Architektūra
+
+Naudojama atskira LLM sąsaja:
+
+```
+llm_clients/
+│
+├── base.py
+├── deepseek_client.py
+└── ollama_client.py
+```
+
+Visi klientai turi vienodą metodą:
+
+```python
+generate(system_prompt, user_prompt) -> text
+```
+
+Dėl to UI gali veikti su skirtingais tiekėjais nepakeitus aplikacijos logikos.
+
+---
+
 ## 🛠 Naudojamos technologijos
 
 - Python 3.10+
 - Streamlit
 - DeepSeek API
+- Ollama
+- requests
 - python-dotenv
 
 ---
 
-## ⚙️ Diegimas
+# ⚙️ Diegimas
 
-### 1️⃣ Klonuok repozitoriją
+## 1️⃣ Klonuok repozitoriją
 
 ```bash
 git clone https://github.com/tavo-vartotojas/email_reply_generator.git
@@ -55,7 +93,7 @@ cd email_reply_generator
 
 ---
 
-### 2️⃣ Sukurk virtualią aplinką (rekomenduojama)
+## 2️⃣ Sukurk virtualią aplinką (rekomenduojama)
 
 Windows:
 ```bash
@@ -71,45 +109,83 @@ source venv/bin/activate
 
 ---
 
-### 3️⃣ Įdiek priklausomybes
+## 3️⃣ Įdiek priklausomybes
 
-Jei turi `requirements.txt`:
 ```bash
 pip install -r requirements.txt
 ```
 
-Arba rankiniu būdu:
+Jei nėra requirements.txt:
+
 ```bash
-pip install streamlit openai python-dotenv
+pip install streamlit openai python-dotenv requests
 ```
 
 ---
 
-### 4️⃣ Sukurk `.env` failą
+# 🔐 Paleidimas su DeepSeek
 
-Projekto kataloge sukurk `.env` failą:
+## 1️⃣ Sukurk `.env` failą
+
+Projekto kataloge:
 
 ```
 DEEPSEEK_API_KEY=your_api_key_here
 ```
 
-⚠️ Niekada nekelk `.env` failo į GitHub.
-
-Rekomenduojama `.gitignore` faile turėti:
-```
-.env
-venv/
-```
+⚠️ `.env` turi būti įtrauktas į `.gitignore`.
 
 ---
 
-## ▶️ Paleidimas
+## 2️⃣ Paleisk aplikaciją
 
 ```bash
 python -m streamlit run app.py
 ```
 
-Aplikacija atsidarys naršyklėje automatiškai.
+Aplikacijoje pasirink:
+- Provider → **DeepSeek**
+- Model → deepseek-chat
+
+---
+
+# 💻 Paleidimas su Ollama
+
+## 1️⃣ Įsitikink, kad Ollama įdiegta
+
+Patikrink:
+
+```bash
+ollama list
+```
+
+Jei neturi modelio:
+
+```bash
+ollama pull llama3
+```
+
+---
+
+## 2️⃣ Paleisk Ollama serverį
+
+```bash
+ollama run llama3
+```
+
+Palik terminalą aktyvų.
+
+---
+
+## 3️⃣ Paleisk Streamlit
+
+```bash
+python -m streamlit run app.py
+```
+
+Aplikacijoje pasirink:
+- Provider → **Ollama**
+- Model → (automatiškai aptiktas lokalus modelis)
 
 ---
 
@@ -119,6 +195,12 @@ Aplikacija atsidarys naršyklėje automatiškai.
 email_reply_generator/
 │
 ├── app.py
+├── llm_clients/
+│   ├── __init__.py
+│   ├── base.py
+│   ├── deepseek_client.py
+│   └── ollama_client.py
+│
 ├── README.md
 ├── requirements.txt
 ├── .env (neįtraukiamas į Git)
@@ -129,10 +211,12 @@ email_reply_generator/
 
 ## 🎯 Projekto tikslas
 
-Sukurti paprastą, bet profesionalų AI įrankį, kuris:
-- taupo laiką
-- pagerina komunikacijos kokybę
-- padeda rašyti aiškiau ir efektyviau
+Sukurti lankstų AI el. laiškų įrankį, kuris:
+
+- veikia tiek su lokaliu modeliu (Ollama),
+- tiek su API pagrįstu modeliu (DeepSeek),
+- leidžia lengvai išplėsti palaikomų modelių skaičių,
+- turi švarią, modulinę architektūrą.
 
 ---
 
@@ -147,11 +231,13 @@ Sukurti paprastą, bet profesionalų AI įrankį, kuris:
 
 ### v1.2
 - 2 tab’ai (Generate / Rewrite)
-- Juodraščio redagavimas
 - Before / After palyginimas
-- Gramatikos taisymas
-- Teksto trumpinimas / ilginimas
-- Mandagesnis / tiesesnis tonas
+
+### v2.0
+- Multi-provider palaikymas (Ollama + DeepSeek)
+- Modelio pasirinkimas UI
+- Atskira `llm_clients` architektūra
+- Vienoda `generate()` sąsaja
 
 ---
 

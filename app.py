@@ -1,24 +1,51 @@
 import streamlit as st
-from openai import OpenAI
-import os
-from dotenv import load_dotenv
+import requests
+from llm_clients.deepseek_client import DeepSeekClient
+from llm_clients.ollama_client import OllamaClient
 
-# Užkraunam .env
-load_dotenv()
-
-client = OpenAI(
-    api_key=os.getenv("DEEPSEEK_API_KEY"),
-    base_url="https://api.deepseek.com"
-)
-
-st.set_page_config(page_title="AI El. laiškų įrankis", page_icon="✉️")
+st.set_page_config(page_title="AI El. laiškų asistentas", page_icon="✉️")
 
 st.title("✉️ AI El. laiškų asistentas")
+
+# =====================================================
+# MODELIO PASIRINKIMAS (be sidebar)
+# =====================================================
+
+col1, col2 = st.columns(2)
+
+with col1:
+    provider = st.selectbox(
+        "Modelio tiekėjas",
+        ["DeepSeek", "Ollama"]
+    )
+
+with col2:
+    if provider == "DeepSeek":
+        model = st.selectbox(
+            "Modelis",
+            ["deepseek-chat"]
+        )
+        llm = DeepSeekClient(model=model)
+    else:
+        try:
+            response = requests.get("http://localhost:11434/api/tags")
+            models = [m["name"] for m in response.json()["models"]]
+        except:
+            models = ["llama3"]
+
+        model = st.selectbox("Modelis", models)
+        llm = OllamaClient(model=model)
+
+st.divider()
+
+# =====================================================
+# TABAI (TAVO SENAS DIZAINAS)
+# =====================================================
 
 tab1, tab2 = st.tabs(["Generuoti nuo nulio", "Perrašyti mano juodraštį"])
 
 # =====================================================
-# TAB 1 – GENERATE FROM SCRATCH
+# TAB 1 – GENERATE
 # =====================================================
 
 with tab1:
@@ -46,9 +73,7 @@ with tab1:
             system_prompt = """
 Tu esi profesionalus komunikacijos specialistas.
 Rašai aukštos kokybės el. laiškus lietuvių kalba.
-
 Grąžink tik galutinį laiško tekstą.
-Be komentarų.
 """
 
             user_prompt = f"""
@@ -61,23 +86,14 @@ Tonas: {tonas}
 Sugeneruok pilną el. laišką.
 """
 
-            response = client.chat.completions.create(
-                model="deepseek-chat",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.7,
-            )
-
-            laiskas = response.choices[0].message.content
+            tekstas = llm.generate(system_prompt, user_prompt)
 
             st.subheader("Sugeneruotas laiškas")
-            st.text_area("", laiskas, height=300)
+            st.text_area("", tekstas, height=300)
 
 
 # =====================================================
-# TAB 2 – REWRITE MY DRAFT
+# TAB 2 – REWRITE
 # =====================================================
 
 with tab2:
@@ -115,22 +131,20 @@ with tab2:
             if ilgis == "Trumpinti":
                 instrukcijos.append("Sutrumpink tekstą, išlaikant esmę.")
             elif ilgis == "Pailginti":
-                instrukcijos.append("Prailgink tekstą, pridėdamas aiškumo ir detalių.")
+                instrukcijos.append("Prailgink tekstą, pridėdamas aiškumo.")
 
             if tonas_rewrite == "Mandagesnis":
-                instrukcijos.append("Padaryk tekstą mandagesnį ir diplomatiškesnį.")
+                instrukcijos.append("Padaryk tekstą mandagesnį.")
             elif tonas_rewrite == "Tiesesnis":
                 instrukcijos.append("Padaryk tekstą tvirtesnį ir tiesesnį.")
 
             if taisyti_gramatika:
-                instrukcijos.append("Ištaisyk gramatikos ir skyrybos klaidas.")
+                instrukcijos.append("Ištaisyk gramatikos klaidas.")
 
             system_prompt = """
 Tu esi profesionalus redaktorius.
 Perrašai el. laiškus lietuvių kalba.
-
-Grąžink tik galutinį perrašytą laišką.
-Be komentarų.
+Grąžink tik galutinį tekstą.
 """
 
             user_prompt = f"""
@@ -139,20 +153,9 @@ Originalus laiškas:
 
 Instrukcijos:
 {chr(10).join(instrukcijos)}
-
-Perrašyk laišką pagal nurodymus.
 """
 
-            response = client.chat.completions.create(
-                model="deepseek-chat",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.5,
-            )
-
-            perrasytas = response.choices[0].message.content
+            perrasytas = llm.generate(system_prompt, user_prompt)
 
             st.subheader("Palyginimas")
 
