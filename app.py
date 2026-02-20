@@ -3,60 +3,104 @@ from openai import OpenAI
 import os
 from dotenv import load_dotenv
 
-# Užkrauname .env
+# Užkraunam .env failą
 load_dotenv()
 
-# DeepSeek klientas (OpenAI compatible)
+# Inicializuojam DeepSeek klientą
 client = OpenAI(
     api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url="https://api.deepseek.com"
 )
 
-st.set_page_config(page_title="DeepSeek Email Reply Generator", page_icon="📧")
+st.set_page_config(page_title="El. laiškų generatorius", page_icon="✉️")
 
-st.title("📧 AI Email Reply Generator (DeepSeek)")
-st.write("Sugeneruok profesionalų atsakymą į gautą laišką naudojant DeepSeek LLM.")
+st.title("✉️ AI El. laiškų atsakymų generatorius")
+st.markdown("Greitai sugeneruok profesionalų el. laiško atsakymą.")
 
-# Įvestis
-email_content = st.text_area("Įklijuok gautą el. laišką:", height=200)
+# -------------------------
+# ĮVESTYS
+# -------------------------
 
-tone = st.selectbox(
-    "Pasirink atsakymo toną:",
-    ["Profesionalus", "Draugiškas", "Formalus", "Trumpas ir konkretus"]
+gavėjas = st.text_input("Gavėjo vardas")
+tema = st.text_input("Laiško tema")
+kontekstas = st.text_area("Kontekstas (apie ką šis laiškas?)")
+rezultatas = st.text_area("Norimas rezultatas (ką nori pasiekti?)")
+
+tonas = st.selectbox(
+    "Pasirink toną",
+    [
+        "Formalus",
+        "Draugiškas",
+        "Trumpas",
+        "Klientų aptarnavimas",
+        "Primenantis (Follow-up)"
+    ]
 )
 
-language = st.selectbox(
-    "Atsakymo kalba:",
-    ["Lietuvių", "Anglų"]
-)
+generuoti = st.button("Generuoti")
 
-if st.button("Sugeneruoti atsakymą"):
-    if email_content.strip() == "":
-        st.warning("Įvesk el. laiško tekstą.")
+# -------------------------
+# TONO INSTRUKCIJOS
+# -------------------------
+
+tono_instrukcijos = {
+    "Formalus": "Rašyk profesionaliu, mandagiu ir struktūruotu tonu.",
+    "Draugiškas": "Rašyk šiltu, natūraliu ir draugišku tonu.",
+    "Trumpas": "Rašyk trumpai, aiškiai ir be nereikalingų detalių.",
+    "Klientų aptarnavimas": "Rašyk kaip profesionalus klientų aptarnavimo specialistas. Būk aiškus, paslaugus ir užtikrinantis.",
+    "Primenantis (Follow-up)": "Rašyk mandagų priminimo laišką. Gerbk gavėjo laiką ir švelniai paragink atsakyti."
+}
+
+# -------------------------
+# GENERAVIMAS
+# -------------------------
+
+if generuoti:
+
+    if not tema or not kontekstas or not rezultatas:
+        st.warning("Prašome užpildyti temą, kontekstą ir norimą rezultatą.")
     else:
-        with st.spinner("Generuojamas atsakymas..."):
 
-            prompt = f"""
-Tu esi profesionalus verslo asistentas.
+        system_prompt = """
+Tu esi profesionalus komunikacijos specialistas,
+kuris rašo aukštos kokybės el. laiškus lietuvių kalba.
 
-Sugeneruok {tone.lower()} atsakymą {language.lower()} kalba.
-
-Laiškas:
-{email_content}
-
-Atsakymas:
+Taisyklės:
+- Visada laikykis pasirinkto tono.
+- Laiškas turi būti aiškus ir struktūruotas.
+- Įtrauk pasisveikinimą ir užbaigimą.
+- Nepridėk paaiškinimų už laiško ribų.
+- Grąžink tik galutinį laiško tekstą.
 """
 
-            response = client.chat.completions.create(
-                model="deepseek-chat",
-                messages=[
-                    {"role": "system", "content": "Tu esi profesionalus AI asistentas, kuris rašo aiškius ir profesionalius atsakymus į el. laiškus."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7
-            )
+        user_prompt = f"""
+Gavėjo vardas: {gavėjas}
+Tema: {tema}
+Kontekstas: {kontekstas}
+Norimas rezultatas: {rezultatas}
 
-            reply = response.choices[0].message.content
+Tono instrukcija:
+{tono_instrukcijos[tonas]}
 
-        st.subheader("✉️ Sugeneruotas atsakymas:")
-        st.text_area("Atsakymas:", reply, height=250)
+Sugeneruok pilną el. laišką.
+"""
+
+        try:
+            with st.spinner("Generuojamas laiškas..."):
+
+                response = client.chat.completions.create(
+                    model="deepseek-chat",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    temperature=0.7,
+                )
+
+                laiskas = response.choices[0].message.content
+
+            st.subheader("Sugeneruotas laiškas")
+            st.text_area("", laiskas, height=400)
+
+        except Exception as e:
+            st.error(f"Klaida generuojant laišką: {e}")
