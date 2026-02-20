@@ -3,104 +3,165 @@ from openai import OpenAI
 import os
 from dotenv import load_dotenv
 
-# Užkraunam .env failą
+# Užkraunam .env
 load_dotenv()
 
-# Inicializuojam DeepSeek klientą
 client = OpenAI(
     api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url="https://api.deepseek.com"
 )
 
-st.set_page_config(page_title="El. laiškų generatorius", page_icon="✉️")
+st.set_page_config(page_title="AI El. laiškų įrankis", page_icon="✉️")
 
-st.title("✉️ AI El. laiškų atsakymų generatorius")
-st.markdown("Greitai sugeneruok profesionalų el. laiško atsakymą.")
+st.title("✉️ AI El. laiškų asistentas")
 
-# -------------------------
-# ĮVESTYS
-# -------------------------
+tab1, tab2 = st.tabs(["Generuoti nuo nulio", "Perrašyti mano juodraštį"])
 
-gavėjas = st.text_input("Gavėjo vardas")
-tema = st.text_input("Laiško tema")
-kontekstas = st.text_area("Kontekstas (apie ką šis laiškas?)")
-rezultatas = st.text_area("Norimas rezultatas (ką nori pasiekti?)")
+# =====================================================
+# TAB 1 – GENERATE FROM SCRATCH
+# =====================================================
 
-tonas = st.selectbox(
-    "Pasirink toną",
-    [
-        "Formalus",
-        "Draugiškas",
-        "Trumpas",
-        "Klientų aptarnavimas",
-        "Primenantis (Follow-up)"
-    ]
-)
+with tab1:
 
-generuoti = st.button("Generuoti")
+    st.subheader("Naujo laiško generavimas")
 
-# -------------------------
-# TONO INSTRUKCIJOS
-# -------------------------
+    gavėjas = st.text_input("Gavėjo vardas")
+    tema = st.text_input("Laiško tema")
+    kontekstas = st.text_area("Kontekstas")
+    rezultatas = st.text_area("Norimas rezultatas")
 
-tono_instrukcijos = {
-    "Formalus": "Rašyk profesionaliu, mandagiu ir struktūruotu tonu.",
-    "Draugiškas": "Rašyk šiltu, natūraliu ir draugišku tonu.",
-    "Trumpas": "Rašyk trumpai, aiškiai ir be nereikalingų detalių.",
-    "Klientų aptarnavimas": "Rašyk kaip profesionalus klientų aptarnavimo specialistas. Būk aiškus, paslaugus ir užtikrinantis.",
-    "Primenantis (Follow-up)": "Rašyk mandagų priminimo laišką. Gerbk gavėjo laiką ir švelniai paragink atsakyti."
-}
+    tonas = st.selectbox(
+        "Tonas",
+        ["Formalus", "Draugiškas", "Tiesus", "Mandagus"]
+    )
 
-# -------------------------
-# GENERAVIMAS
-# -------------------------
+    generuoti = st.button("Generuoti laišką")
 
-if generuoti:
+    if generuoti:
 
-    if not tema or not kontekstas or not rezultatas:
-        st.warning("Prašome užpildyti temą, kontekstą ir norimą rezultatą.")
-    else:
+        if not tema or not kontekstas or not rezultatas:
+            st.warning("Užpildykite visus laukus.")
+        else:
 
-        system_prompt = """
-Tu esi profesionalus komunikacijos specialistas,
-kuris rašo aukštos kokybės el. laiškus lietuvių kalba.
+            system_prompt = """
+Tu esi profesionalus komunikacijos specialistas.
+Rašai aukštos kokybės el. laiškus lietuvių kalba.
 
-Taisyklės:
-- Visada laikykis pasirinkto tono.
-- Laiškas turi būti aiškus ir struktūruotas.
-- Įtrauk pasisveikinimą ir užbaigimą.
-- Nepridėk paaiškinimų už laiško ribų.
-- Grąžink tik galutinį laiško tekstą.
+Grąžink tik galutinį laiško tekstą.
+Be komentarų.
 """
 
-        user_prompt = f"""
-Gavėjo vardas: {gavėjas}
+            user_prompt = f"""
+Gavėjas: {gavėjas}
 Tema: {tema}
 Kontekstas: {kontekstas}
-Norimas rezultatas: {rezultatas}
-
-Tono instrukcija:
-{tono_instrukcijos[tonas]}
+Tikslas: {rezultatas}
+Tonas: {tonas}
 
 Sugeneruok pilną el. laišką.
 """
 
-        try:
-            with st.spinner("Generuojamas laiškas..."):
+            response = client.chat.completions.create(
+                model="deepseek-chat",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.7,
+            )
 
-                response = client.chat.completions.create(
-                    model="deepseek-chat",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    temperature=0.7,
-                )
-
-                laiskas = response.choices[0].message.content
+            laiskas = response.choices[0].message.content
 
             st.subheader("Sugeneruotas laiškas")
-            st.text_area("", laiskas, height=400)
+            st.text_area("", laiskas, height=300)
 
-        except Exception as e:
-            st.error(f"Klaida generuojant laišką: {e}")
+
+# =====================================================
+# TAB 2 – REWRITE MY DRAFT
+# =====================================================
+
+with tab2:
+
+    st.subheader("Juodraščio perrašymas")
+
+    draft = st.text_area("Įklijuok savo juodraštį", height=200)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        ilgis = st.selectbox(
+            "Ilgio keitimas",
+            ["Nekeisti", "Trumpinti", "Pailginti"]
+        )
+
+    with col2:
+        tonas_rewrite = st.selectbox(
+            "Stilius",
+            ["Nekeisti", "Mandagesnis", "Tiesesnis"]
+        )
+
+    taisyti_gramatika = st.checkbox("Taisyti gramatiką")
+
+    perrasyti = st.button("Perrašyti laišką")
+
+    if perrasyti:
+
+        if not draft:
+            st.warning("Įklijuokite juodraštį.")
+        else:
+
+            instrukcijos = []
+
+            if ilgis == "Trumpinti":
+                instrukcijos.append("Sutrumpink tekstą, išlaikant esmę.")
+            elif ilgis == "Pailginti":
+                instrukcijos.append("Prailgink tekstą, pridėdamas aiškumo ir detalių.")
+
+            if tonas_rewrite == "Mandagesnis":
+                instrukcijos.append("Padaryk tekstą mandagesnį ir diplomatiškesnį.")
+            elif tonas_rewrite == "Tiesesnis":
+                instrukcijos.append("Padaryk tekstą tvirtesnį ir tiesesnį.")
+
+            if taisyti_gramatika:
+                instrukcijos.append("Ištaisyk gramatikos ir skyrybos klaidas.")
+
+            system_prompt = """
+Tu esi profesionalus redaktorius.
+Perrašai el. laiškus lietuvių kalba.
+
+Grąžink tik galutinį perrašytą laišką.
+Be komentarų.
+"""
+
+            user_prompt = f"""
+Originalus laiškas:
+{draft}
+
+Instrukcijos:
+{chr(10).join(instrukcijos)}
+
+Perrašyk laišką pagal nurodymus.
+"""
+
+            response = client.chat.completions.create(
+                model="deepseek-chat",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.5,
+            )
+
+            perrasytas = response.choices[0].message.content
+
+            st.subheader("Palyginimas")
+
+            col_before, col_after = st.columns(2)
+
+            with col_before:
+                st.markdown("### Prieš")
+                st.text_area("", draft, height=250)
+
+            with col_after:
+                st.markdown("### Po")
+                st.text_area("", perrasytas, height=250)
